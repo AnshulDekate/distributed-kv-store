@@ -2,23 +2,27 @@ package com.example.database.models;
 
 import com.example.database.hashing.SHA256;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
 
 public class NodeFactory {
-    public static TreeMap<byte[], VirtualNode> get(int numNodes, int numVirtualNodes) {
-        TreeMap<byte[], VirtualNode> nodeMap = new TreeMap<byte[], VirtualNode>(new ByteArrayComparator());
+    public static TreeMap<byte[], VirtualNode> get(int numNodes, int numVirtualNodes, int seed) {
+        TreeMap<byte[], VirtualNode> nodeMap = new TreeMap<>(new ByteArrayComparator());
         for (int i = 0; i < numNodes; i++) {
             Node node = new Node();
-            node.ID = "Node-" + Integer.toString(i);
+            node.ID = String.format("Node-%d", seed+i);
+            ArrayList<VirtualNode> vNodeList = new ArrayList<>();
             for (int j=0; j<numVirtualNodes; j++){
                 VirtualNode vNode = new VirtualNode();
-                vNode.ID = "VirtualNode-" + Integer.toString(i) + Integer.toString(j) ;
+                vNode.ID = String.format("VirtualNode-%d%d%d", seed, i, j);
                 vNode.refNode = node;
+                vNodeList.add(vNode);
                 byte[] hashValue = SHA256.hash(vNode.ID);
                 nodeMap.put(hashValue, vNode);
             }
+            node.vNodeList = vNodeList;
         }
 //        printNodeMap(nodeMap);
         return nodeMap;

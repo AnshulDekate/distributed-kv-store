@@ -1,16 +1,8 @@
 package com.example.database;
 
-import com.example.database.hashing.SHA256;
 import com.example.database.hashing.RandomString;
-import com.example.database.models.Node;
-import com.example.database.models.NodeFactory;
 import com.example.database.models.Store;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import javax.swing.plaf.synth.SynthTextAreaUI;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.TreeMap;
 
 @SpringBootApplication
 public class DatabaseApplication {
@@ -25,8 +17,15 @@ public class DatabaseApplication {
 			String value = RandomString.generateRandomString(10);
 			c.put(key, value);
 		}
+		c.addNode();
+		c.addNode();
+		c.addNode();
+		c.removeNode("Node-4");
+		c.removeNode("Node-7");
+		c.addNode();
+		c.removeNode("Node-5");
 
-		c.showCnt();
+		c.showActualNodes();
 	}
 
 }
