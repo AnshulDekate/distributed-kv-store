@@ -8,7 +8,8 @@ public class VirtualNode {
 
     public HashSet<String> keys;
 
-    public VirtualNode(){
+    public VirtualNode(String ID){
+        this.ID = ID;
         this.keys = new HashSet<>();
     }
 }

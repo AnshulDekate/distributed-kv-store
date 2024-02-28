@@ -5,57 +5,77 @@ import com.example.database.hashing.SHA256;
 import java.util.*;
 
 public class Store {
-    TreeMap<byte[], VirtualNode> vNodes;
-    HashSet<Node> nodes;
-    int seed;
+    TreeMap<byte[], VirtualNode> HashRing;
+    ArrayList<Node> nodes;
+    int nxtID;
     int numVirtualNodes;
-    public Store(int numNodes, int numVirtualNodes){
-        this.seed = 0;
+    int numReplica;
+    public Store(int numNodes, int numVirtualNodes, int numReplica){
         this.numVirtualNodes = numVirtualNodes;
-        this.vNodes = NodeFactory.get(numNodes, numVirtualNodes, this.seed);
-        this.seed = numNodes-1;
-//        System.out.println(this.nodes.size());
-        this.nodes = new HashSet<Node>();
-        for (VirtualNode virtualNode: this.vNodes.values()){
-            this.nodes.add(virtualNode.refNode);
+        this.numReplica = numReplica;
+
+        this.nodes = NodeFactory.get(numNodes, numVirtualNodes, numReplica, this.nxtID);
+        this.nxtID += this.nodes.size();
+
+        TreeMap<byte[], VirtualNode> HashRing = new TreeMap<>(new ByteArrayComparator());
+        for (Node node : this.nodes ){
+            for (VirtualNode vNode : node.vNodeList){
+                byte[] hashKey = SHA256.hash(vNode.ID);
+                HashRing.put(hashKey, vNode);
+            }
+        }
+        this.HashRing = HashRing;
+    }
+
+    // Custom comparator for byte arrays
+    static class ByteArrayComparator implements Comparator<byte[]> {
+        @Override
+        public int compare(byte[] arr1, byte[] arr2) {
+            // Compare byte arrays lexicographically
+            for (int i = 0; i < Math.min(arr1.length, arr2.length); i++) {
+                int byte1 = Byte.toUnsignedInt(arr1[i]);
+                int byte2 = Byte.toUnsignedInt(arr2[i]);
+                int diff = Integer.compare(byte1, byte2);
+                if (diff != 0) {
+                    return diff;
+                }
+            }
+            return Integer.compare(arr1.length, arr2.length);
         }
     }
 
     public VirtualNode nxtNode(String key){
         byte[] hashValue = SHA256.hash(key);
-        Map.Entry<byte[], VirtualNode> entry = this.vNodes.ceilingEntry(hashValue);
+        Map.Entry<byte[], VirtualNode> entry = this.HashRing.ceilingEntry(hashValue);
         if (entry == null) {
-            entry = this.vNodes.firstEntry();
+            entry = this.HashRing.firstEntry();
         }
         return entry.getValue();
     }
 
-    public String get(String key){
+    public Integer get(String key){
         VirtualNode vNode = nxtNode(key);
-        return vNode.refNode.map.get(key);
+        return vNode.refNode.get(key);
     }
 
-    public void put(String key, String val){
+    public void put(String key, Integer val){
         VirtualNode vNode = nxtNode(key);
         vNode.keys.add(key);
-        vNode.refNode.map.put(key, val);
+        vNode.refNode.put(key, val);
     }
 
-    public void addNode(){
-        TreeMap<byte[], VirtualNode> VirtualNodes = NodeFactory.get(1, numVirtualNodes, ++this.seed);
-
+    public void addNode(int numVirtualNodes, int numReplica){
+        ArrayList<Node> nodes = NodeFactory.get(1, numVirtualNodes, numReplica, this.nxtID++);
+        this.nodes.add(nodes.get(0));
         // for every new virtual node
-        for (Map.Entry<byte[], VirtualNode> entry: VirtualNodes.entrySet()){
-            byte[] hashValue = entry.getKey();
-            VirtualNode newVirtualNode = entry.getValue();
-
+        for (VirtualNode newVirtualNode: nodes.get(0).vNodeList){
+            byte[] hashValue = SHA256.hash(newVirtualNode.ID);
             // order of following operations is very crucial
 
             // determine existing next virtual node
             VirtualNode vNxt = nxtNode(newVirtualNode.ID);
             // put this one in the map
-            this.vNodes.put(hashValue, newVirtualNode);
-            this.nodes.add(newVirtualNode.refNode);
+            this.HashRing.put(hashValue, newVirtualNode);
 
             // identify keys to reshard
             ArrayList<String> keysToReshard = new ArrayList<>();
@@ -69,19 +89,21 @@ public class Store {
             for (String key: keysToReshard){
                 // delete from nxt virtual node
                 vNxt.keys.remove(key);
-                String val = vNxt.refNode.map.get(key);
-                vNxt.refNode.map.remove(key);
+
+                int val = vNxt.refNode.getSure(key);
+
+                vNxt.refNode.remove(key);
 
                 // put on this virtual node
                 newVirtualNode.keys.add(key);
-                newVirtualNode.refNode.map.put(key, val);
+                newVirtualNode.refNode.put(key, val);
             }
 
         }
     }
 
     public void removeNode(String NodeID){
-        Node currNode = new Node();
+        Node currNode = null;
         for (Node node:this.nodes){
             if (node.ID.equals(NodeID)){
                 currNode = node;
@@ -89,54 +111,64 @@ public class Store {
             }
         }
 
-        // de-link current node but use it later code, automatically garbage collected
-        this.nodes.remove(currNode);
-
         // for every virtual node to be removed
         for (VirtualNode virtualNode: currNode.vNodeList){
             byte[] hashValue = SHA256.hash(virtualNode.ID);
             // remove this one from the map
-            this.vNodes.remove(hashValue);
+            this.HashRing.remove(hashValue);
             // determine existing next virtual node
             VirtualNode nxtNode = this.nxtNode(virtualNode.ID);
             // identify keys to reshard
             HashSet<String> keysToReShard = virtualNode.keys;
             for (String key: keysToReShard) {
                 nxtNode.keys.add(key);
-                nxtNode.refNode.map.put(key, currNode.map.get(key));
+                nxtNode.refNode.put(key, currNode.getSure(key));
             }
         }
 
+        // de-link current node but use it later code, automatically garbage collected
+        this.nodes.remove(currNode);
+
     }
 
-    public void showAll(){
-        for (Node node: this.nodes){
-            System.out.println(node.ID);
-            for (String key: node.map.keySet()){
-                System.out.print(key + ", ");
-                System.out.println(node.map.get(key));
-            }
+//    public void showAll(){
+//        for (Node node: this.nodes){
+//            System.out.println(node.ID);
+//            for (String key: node.keySet()){
+//                System.out.print(key + ", ");
+//                System.out.println(node.get(key));
+//            }
+//        }
+//    }
+
+    public static void printHashRing(TreeMap<byte[], Node> nodeMap){
+        for (Map.Entry<byte[], Node> entry : nodeMap.entrySet()) {
+            SHA256.printByteArrayAsBits(entry.getKey());
+            System.out.println(entry.getValue().ID);
         }
     }
-
-
 
     public void showActualNodes() {
         int sum = 0;
+        System.out.println(this.nodes.size());
         for (Node node: this.nodes){
             System.out.println(node.ID);
-            System.out.println(node.map.size());
-            sum += node.map.size();
-//            for (VirtualNode vn: node.vNodeList) {
-//                System.out.printf("%s ", vn.ID);
-//            }
-//            System.out.println();
-//            for (String key: node.map.keySet()){
-//                System.out.printf(" %s ", key);
-//            }
-//            System.out.println();
+            int sz = 0;
+            for (Replica replica: node.replicaList){
+                sz += replica.data.size();
+            }
+            sum += sz;
+            System.out.println(sz);
+            for (Replica replica: node.replicaList){
+                System.out.printf("Replica %d\n", replica.ID);
+                for (String key: replica.data.keySet()){
+                    System.out.printf("%s %s ", key, replica.data.get(key));
+                }
+                System.out.println();
+            }
         }
         System.out.printf("Total number of keys : %d \n", sum);
     }
+
 
 }
