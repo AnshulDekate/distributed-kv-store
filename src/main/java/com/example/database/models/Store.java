@@ -6,7 +6,7 @@ import java.util.*;
 
 public class Store {
     TreeMap<byte[], VirtualNode> HashRing;
-    ArrayList<Node> nodes;
+    public ArrayList<Node> nodes;
     int nxtID;
     int numVirtualNodes;
     int numReplica;
@@ -153,12 +153,14 @@ public class Store {
         System.out.println(this.nodes.size());
         for (Node node: this.nodes){
             System.out.println(node.ID);
-            int sz = 0;
-            for (Replica replica: node.replicaList){
-                sz += replica.data.size();
+            Set<String> ss = new HashSet<>();
+            for (Replica replica: node.replicaList) {
+                for (String key : replica.data.keySet()) {
+                    ss.add(key);
+                }
             }
-            sum += sz;
-            System.out.println(sz);
+            sum += ss.size();
+            System.out.println(ss.size());
             for (Replica replica: node.replicaList){
                 System.out.printf("Replica %d\n", replica.ID);
                 for (String key: replica.data.keySet()){

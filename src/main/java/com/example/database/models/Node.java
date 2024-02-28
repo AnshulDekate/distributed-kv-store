@@ -19,15 +19,19 @@ public class Node {
         this.replicaList = new ArrayList<>();
     }
 
-
     public Integer get(String key){
         int choice = this.random.nextInt(this.replicaList.size());
+        System.out.printf("%s %d ", this.ID, choice);
         return this.replicaList.get(choice).data.get(key);
     }
 
     public void put(String key, Integer val){
         int choice = this.random.nextInt(this.replicaList.size());
-        this.replicaList.get(choice).data.put(key, val);
+        int currVal = 0;
+        if (this.replicaList.get(choice).data.containsKey(key)){
+            currVal = this.replicaList.get(choice).data.get(key);
+        }
+        this.replicaList.get(choice).data.put(key, currVal+val);
     }
 
     public Integer getSure(String key){

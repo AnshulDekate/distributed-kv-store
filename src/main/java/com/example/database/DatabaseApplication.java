@@ -1,6 +1,8 @@
 package com.example.database;
 
+import com.example.database.Reconciliation.Standard;
 import com.example.database.hashing.RandomString;
+import com.example.database.models.Node;
 import com.example.database.models.Store;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,7 +19,6 @@ public class DatabaseApplication {
 		String s = "key-";
 		for (int i=0; i<200; i++){
 			String key = s + Integer.toString(i);
-//			String value = RandomString.generateRandomString(10);
 			Integer value = i;
 			c.put(key, value);
 		}
@@ -30,5 +31,20 @@ public class DatabaseApplication {
 		c.removeNode("Node-5");
 		c.showActualNodes();
 
+		// this is adding value not replacing it, so result should be 56 after reconciliation
+		c.put("key-50", 6);
+
+		for (int i=0; i<10; i++){
+			System.out.println(c.get("key-50"));
+		}
+
+		for (Node node: c.nodes){
+			Standard.reconcile(node);
+		}
+
+		c.showActualNodes();
+		for (int i=0; i<10; i++){
+			System.out.println(c.get("key-50"));
+		}
 	}
 }
