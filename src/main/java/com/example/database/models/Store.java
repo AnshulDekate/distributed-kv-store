@@ -1,16 +1,30 @@
 package com.example.database.models;
 
 import com.example.database.hashing.SHA256;
+import com.google.gson.annotations.Expose;
 
 import java.util.*;
 
 public class Store {
-    TreeMap<byte[], VirtualNode> HashRing;
-    public ArrayList<Node> nodes;
+    public static Store instance;
+
     int nxtID;
     int numVirtualNodes;
+
     int numReplica;
-    public Store(int numNodes, int numVirtualNodes, int numReplica){
+    TreeMap<byte[], VirtualNode> HashRing;
+    @Expose
+    public ArrayList<Node> nodes;
+
+    public static Store getInstance(int numNodes, int numVirtualNodes, int numReplica){
+        if (instance == null) {
+            Store obj = new Store(numNodes, numVirtualNodes, numReplica);
+            instance = obj;
+        }
+        return instance;
+    }
+
+    private Store(int numNodes, int numVirtualNodes, int numReplica){
         this.numVirtualNodes = numVirtualNodes;
         this.numReplica = numReplica;
 
@@ -26,6 +40,8 @@ public class Store {
         }
         this.HashRing = HashRing;
     }
+
+
 
     // Custom comparator for byte arrays
     static class ByteArrayComparator implements Comparator<byte[]> {
@@ -130,16 +146,6 @@ public class Store {
         this.nodes.remove(currNode);
 
     }
-
-//    public void showAll(){
-//        for (Node node: this.nodes){
-//            System.out.println(node.ID);
-//            for (String key: node.keySet()){
-//                System.out.print(key + ", ");
-//                System.out.println(node.get(key));
-//            }
-//        }
-//    }
 
     public static void printHashRing(TreeMap<byte[], Node> nodeMap){
         for (Map.Entry<byte[], Node> entry : nodeMap.entrySet()) {
